@@ -1,0 +1,190 @@
+
+Créer un serveur WebDAV sur Ubuntu et connecter ONLYOFFICE
+ONLYOFFICE Groups v12.5.2
+ONLYOFFICE Groups changelog
+
+    version serveur ONLYOFFICE Groups 
+
+Introduction
+
+Si vous utilisez un serveur sur votre réseau local pour stocker qui comporte un grand volume de fichiers, vous préférez probablement continuer à travailler de manière habituelle sans télécharger tous les fichiers quelque part. Mais il existe une solution simple, fiable et sécurisée vous permettant de profiter de l'édition des documents en ligne. Il vous faut procéder comme suit:
+
+    Paramétrez WebDAV sur votre serveur. WebDAV (Web Distributed Authoring and Versioning) est une extension du protocole HTTP permettant de gérer des fichiers avec des serveurs distants, d'accéder aux documents à travers le web et de les éditer simultanément.
+    Connectez votre stockage WebDAV au module ONLYOFFICE Documents. Cela vous permettra d'étendre considérablement les capacités de gestion des fichiers et de collaboration. Vous serez capable de:
+        établir les différentes permissions d'accès aux fichiers et dossiers d'utilisateurs et de groupes;
+        contrôler l'historique de versions et rétablir d'anciennes versions ou révisions;
+        créer et modifier des documents en ligne à l'aide les éditeurs en ligne les plus puissants;
+        retrouvez les larges possibilités d'utilisation telles que co-édition en temps réel, révision, suivi des modifications, commentaires et bien plus encore.
+
+Étape 1. Créer et configurer votre serveur WebDAV sur Ubuntu 14.04
+
+    Installer le serveur Web Apache
+
+    sudo apt-get update
+    sudo apt-get install apache2
+
+    Maintenant le serveur Apache est installé et est opérationnel.
+    Paramétrer le référentiel de données WebDAV
+
+    Par défaut, le répertoire racine d'Apache (sur Ubuntu 14.04 ou version ultérieure) est /var/www/html. Celui-ci forme l'arborescence des répertoires qui seront accessibles sur le Web. Créez un nouveau dossier webdav dans le répertoire /var/www/:
+
+    sudo mkdir /var/www/webdav
+
+    Remplacez le propriétaire du dossier par votre utilisateur Apache www-data pour donner les droits d'écriture à l'Apache:
+
+    sudo chown -R www-data:www-data /var/www/
+
+    Activez les modules WebDAV depuis la configuration Apache
+
+    Apache inclut les modules WebDAV intégrés qui ne sont pas activés par défaut. Activez-les en utilisant les commandes suivantes:
+
+    sudo a2enmod dav
+    sudo a2enmod dav_fs
+
+    Configurer votre serveur WebDAV
+    Configuration initiale
+        Ouvrez le fichier de configuration dans l'éditeur de texte, par exemple nano:
+
+        sudo nano /etc/apache2/sites-available/000-default.conf
+
+        Ajoutez la directive suivante comme première ligne:
+
+        DavLockDB /var/www/DavLock
+
+        Recherchez la section <VirtualHost> et ajoutez les directives suivantes:
+
+        Alias /webdav /var/www/webdav 
+        <Directory /var/www/webdav> 
+        DAV On 
+        </Directory>
+
+            La directive DavLockDB indique le chemin d'accès de la base de données de verrouillage WebDAV.
+            La directive Alias permet d'autoriser l'accès web à tout dossier qui ne se trouve pas dans l'arborescence des répertoires. C'est un exemple de mappage entre http://<hostname>/webdav et /var/www/webdav .
+            La directive Directory définit d'autres directives à appliquer au dossier spécifié et son contenu. Dans ce cas selon la directive DAV, WebDAV doit être activé pour le dossier /var/www/webdav.
+
+        Ainsi, votre configuration doit ressembler à ceci:
+        Modifier le fichier de configuration Apache
+
+        Sauvegardez les modifications et fermez le fichier.
+
+        Votre serveur WebDAV est presque prêt, mail il faut encore activer l'authentification pour le rendre plus sécurisé.
+    Activer l'authentification
+
+    Sélectionnez le type d'authentification approprié qui répond à l'une des deux conditions suivantes:
+        la version ONLYOFFICE que vous utilisez (Windows or Linux),
+        HTTPS activé ou désactivé sur votre serveur Apache.
+        Cet article fournit des informations de base sur la configuration WebDAV avec Apache et ne fournit pas les instruction sur l'installation du serveur Apache avec SSL. Le serveur Apache que vous installez selon ces instructions sera accessible via le protocole HTTP.
+
+    Le tableau ci-dessous vous aidera à choisir le type d'authentification approprié.
+    	HTTP Apache 	HTTPS Apache
+    Version ONLYOFFICE sur Linux 	Basic 	Basic
+    Version ONLYOFFICE sur Linux 	Digest 	Basic, Digest
+
+    Installer des éléments prérequis
+
+    Quel que soit le type d'authentification à activer, il faut premièrement installer les outils apache2-utils pour votre serveur web. Cet ensemble de programmes comprend l'outil htpasswd qui sert à créer un fichier de mots de passe pour l'authentification Basic et l'outil htdigest qui sert à créer un fichier de mots de passe pour l'authentification Digest.
+
+    sudo apt-get install apache2-utils
+
+    Créer un fichier de mots de passe
+        Générez le fichier comportant les mots de passe d'utilisateur en ajoutant le premier utilisateur:
+
+        Pour l'authentification Basic:
+
+        sudo htpasswd -c /etc/apache2/webdav.passwords alex
+
+        Pour l'authentification Digest:
+
+        sudo htdigest -c /etc/apache2/webdav.passwords webdav alex
+
+        Vous serez invité à définir et à confirmer un nouveau mot de passe de l'utilisateur spécifié.
+        Lorsque vous ajoutez d'autres utilisateurs, utilisez la même commande en omettant le drapeau -c:
+
+        Pour l'authentification Basic:
+
+        sudo htpasswd /etc/apache2/webdav.passwords chris
+
+        Pour l'authentification Digest:
+
+        sudo htdigest /etc/apache2/webdav.passwords webdav chris
+
+        Remplacez le propriétaire du fichier de mots de passe par www-data pour qu'Apache puisse lire le fichier:
+
+        sudo chown www-data:www-data /etc/apache2/webdav.passwords
+
+    Modifier le fichier de configuration Apache
+        Ouvrez le fichier de configuration dans l'éditeur de texte, par exemple nano:
+
+        sudo nano /etc/apache2/sites-available/000-default.conf
+
+        Ajoutez les lignes suivantes à la section <Directory>:
+
+        Pour l'authentification Basic:
+
+        AuthType Basic 
+        AuthName "webdav" 
+        AuthUserFile /etc/apache2/webdav.passwords 
+        Require valid-user
+
+        Pour l'authentification Digest:
+
+        AuthType Digest 
+        AuthName "webdav" 
+        AuthUserFile /etc/apache2/webdav.passwords 
+        Require valid-user
+
+            La directive AuthType définit le type d'authentification à utiliser lorsque les utilisateurs essayent d'accéder au répertoire /var/www/webdav. Les valeurs disponibles Basic ou Digest.
+            La directive AuthName indique le nom du domaine d'authentification. Cette valeur sera affichée dans la boîte de dialogue du navigateur pour indiquer à l'utilisateur les informations d'identification à fournir. Lors de l'activation de l'authentification Digest, cette valeur sera inclue dans la commande pour créer un fichier de mots de passe et est utilisé comme un espace de nom des utilisateurs.
+            La directive AuthUserFile définit le chemin d'accès du fichier comportant la liste des utilisateurs avec mots de passe.
+            La directive Require vérifie si les utilisateurs authentifiés sont autorisés à accéder au répertoire en fonction des restrictions en place. Dans ce cas, la directive définit que tous utilisateurs valides (des utilisateurs qui peuvent vérifier leur identité) peuvent accéder au répertoire.
+
+        Ainsi, votre configuration doit ressembler à ceci:
+        Modifier le fichier de configuration Apache
+
+        Sauvegardez les modifications et fermez le fichier.
+
+    Appliquer les modifications.
+        Activez le module d'authentification sélectionné.
+
+        Pour l'authentification Basic:
+
+        sudo a2enmod auth_basic
+
+        Pour l'authentification Digest:
+
+        sudo a2enmod auth_digest
+
+        Redémarrez le serveur Apache en utilisant la commande suivante pour prendre en compte les modifications.
+
+        sudo service apache2 restart
+
+    Vérifier que votre référentiel WebDAV est accessible depuis un ordinateur externe:
+
+    Votre serveur WebDAV est accessible sur http://<hostname>/webdav
+
+    Où <hostname> est l'adresse IP du serveur WebDAV ou le nom d'hôte. Vous pouvez saisir cette adresse dans la barre d'adresse du navigateur ou connectez depuis le système de fichiers. Par ex. sur Ubuntu, vous pouvez procédez comme suit:
+        Dans la fenêtre Fichiers, cliquez sur Connecter au serveur.
+        dans la nouvelle fenêtre qui s'affiche, saisissez dav://<hostname>/webdav et cliquez sur le bouton Connecter.
+        Il vous sera demandé de saisir vos identifiants. Saisissez votre nom d'utilisateur et mot de passe WebDAV qui figure sur le fichier de mots de passe et cliquez sur Connecter.
+
+Étape 2. Connecter votre serveur WebDAV au module Documents
+
+Maintenant, vous pouvez passez au module Documents et connecter votre serveur WebDAV.
+
+    Cliquez sur le lien Documents sur la page d'accueil du portail.
+    Dans le module Documents, cliquez sur le bouton Bouton Ajouter un compte au-dessous de Ajouter un compte.
+    Dans la fenêtre Connecter un compte, appuyez sur le bouton Autre compte.
+    Connecter un compte
+    Dans le formulaire qui s'affiche, saisissez les paramètres suivants pour connecter votre votre référentiel WebDAV:
+        Saisissez URL de connexion sous cette forme-ci: http://<hostname>/webdav/ ou https://<hostname>/webdav/
+        Dans les champs Identifiant et Mot de passe, saisissez le nom d'utilisateur et le mot de passe WebDAV.
+        Le cas échéant, modifier le nom par défaut de votre référentiel WebDAV dans le champ Titre du dossier.
+        Il est également possible d'ajouter le référentiel WebDAV à la section Documents communs qui est disponible pour tous les utilisateurs du portail mais pas à votre documents personnels. Pour ce faire, activez l'option Rendre partagé et mettre dans le dossier Communs.
+    Connecter un compte
+    Cliquez sur le bouton Enregistrer.
+
+C'est fait, vous avez connecté avec succès votre serveur WebDAV au module Documents ONLYOFFICE. Vous pouvez maintenant:
+
+    modifier les permissions pour les dossiers et les fichiers différents au sein du référentiel WebDAV. Pour en savoir plus sur les permissions d'accès dans le module Documents, veuillez consulter cet article.
+    modifier vos documents en utilisant les éditeurs en ligne avec l'accès à toute fonctionnalités disponibles. Pour en savoir plus sur les fonctionnalités d'éditeurs en ligne, veuillez consulter cette section.
+
